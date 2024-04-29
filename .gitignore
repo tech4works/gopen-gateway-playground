@@ -1,2 +1,5 @@
 # Golang IDE
 .idea/
+
+# Runtime folder
+runtime/

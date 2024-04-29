@@ -12,6 +12,8 @@ podem ser utilizados no dia-a-dia em ambiente produtivo.
 
 # Instalação
 
+Para consegui rodar a API Gateway na sua máquina, precisamos primeiro
+
 Para iniciarmos o playground, precisamos fazer o download do projeto:
 
 ```text

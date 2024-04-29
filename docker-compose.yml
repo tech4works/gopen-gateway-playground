@@ -1,6 +1,6 @@
 services:
   app:
-    container_name: gopen-gateway
+    container_name: app
     image: gabrielhcataldo/gopen-gateway:latest
     ports:
       - "${PORT}:${PORT}"

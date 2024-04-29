@@ -1,5 +1,9 @@
 .SILENT:
 
+# Define valores padrão para os parâmetros se eles não forem especificados
+IMAGE ?= gopen:lastest-$(ENV)
+CONTAINER ?= api-gateway-$(ENV)
+
 # Obtemos o nome do sistema operacional
 UNAME_S := $(shell uname -s 2>/dev/null)
 
@@ -18,36 +22,74 @@ else
 	$(error Unknown operating system: $(UNAME_S))
 endif
 
-# Comando para executar a API Gateway via docker
-run:
-	echo "Checking you operation system..."
-	echo "Operating System: $(UNAME_S)"
+define check_env_param
+	@echo "Getting env name argument..."
 
-	echo "Getting env name argument..."
-
-	# Obtemos o nome do ambiente passado no primeiro argumento no terminal
-	$(eval ENV_NAME := $(filter-out $@,$(MAKECMDGOALS)))
-	@if [ -z "$(ENV_NAME)" ]; then \
-		echo "Error: No argument provided. Usage: make run {env name}"; \
+	# Verificamos a ENV passada no argumento
+	@if [ -z "$(ENV)" ]; then \
+		@echo "Error: No ENV argument provided. Usage: make run ENV=value"; \
 		exit 1; \
 	fi
+endef
 
-	echo "Checking if json ./gopen/$(ENV_NAME)/.json exists..."
+define check_json_exists
+	echo "Checking if json ./gopen/$(ENV)/.json exists..."
 
 	# Verificamos se o json de configuração existe pelo nome do ambiente passado
-	@if [ ! -f "./gopen/$(ENV_NAME)/.json" ]; then \
-		echo "Error: File ./gopen/$(ENV_NAME)/.json does not exist"; \
+	@if [ ! -f "./gopen/$(ENV)/.json" ]; then \
+		echo "Error: File ./gopen/$(ENV)/.json does not exist"; \
 		exit 1; \
 	fi
+endef
 
-	echo "Getting port from json ./gopen/$(ENV_NAME)/.json..."
+define get_port_by_json
+	echo "Getting port from json ./gopen/$(ENV)/.json..."
 
-	# Obtemos a porta configurada no json, através do binário do sistema operacional
-	$(eval PORT := $(shell ./$(READPORT) ./gopen/$(ENV_NAME)/.json))
+	# Definindo uma variável temporária para armazenar a saída do comando
+	$(eval TEMP_PORT := $(shell ./$(READPORT) ./gopen/$(ENV)/.json 2>/dev/null))
 
-	echo "Starting docker with ENV_NAME=$(ENV_NAME) and PORT=$(PORT)..."
+	# Verifica se o comando foi bem-sucedido e a variável TEMP_PORT não está vazia
+	$(eval PORT := $(if $(TEMP_PORT),$(TEMP_PORT),$(error Error to read port on ./gopen/$(ENV)/.json)))
+endef
+
+define docker_build
+	echo "Starting docker build with ENV=$(ENV) and IMAGE=$(IMAGE)"
+
+	# Inicializamos o build do dockerfile
+	docker build -t $(IMAGE) .
+endef
+
+define docker_run
+	echo "Starting docker container with ENV=$(ENV), PORT=$(PORT), IMAGE=$(IMAGE) and CONTAINER=$(CONTAINER)..."
+
+	docker run --name $(CONTAINER) -p $(PORT):$(PORT) -e ENV_NAME=$(ENV) $(IMAGE)
+endef
+
+define docker_compose
+	echo "Starting docker-compose with ENV=$(ENV) and PORT=$(PORT)..."
 
 	# Inicializamos o docker-compose com o nome do ambiente e a porta configurada
-	ENV_NAME=$(ENV_NAME) PORT=$(PORT)  docker-compose up
-%:
-	@:
+	ENV_NAME=$(ENV) PORT=$(PORT) docker-compose up
+endef
+
+# Comando para gerar imagem
+build:
+	$(call check_env_param)
+	$(call check_json_exists)
+	$(call docker_build)
+
+# Comando para gerar imagem e executar ela em container local
+deploy:
+	$(call check_env_param)
+	$(call check_json_exists)
+	$(call docker_build)
+	$(call get_port_by_json)
+	$(call docker_run)
+
+# Comando para executar a API Gateway via docker
+run:
+	$(call check_env_param)
+	$(call check_json_exists)
+	$(call get_port_by_json)
+	$(call docker_compose)
+
