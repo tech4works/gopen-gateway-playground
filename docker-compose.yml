@@ -1,0 +1,12 @@
+services:
+  app:
+    container_name: gopen-gateway
+    image: gabrielhcataldo/gopen-gateway:latest
+    ports:
+      - "${PORT}:${PORT}"
+    volumes:
+      - ./runtime:/root/runtime
+      - ./gopen/${ENV_NAME}:/root/gopen/${ENV_NAME}
+    restart: unless-stopped
+    environment:
+      - ENV_NAME=${ENV_NAME}
