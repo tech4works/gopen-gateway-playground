@@ -1,4 +1,4 @@
-<img src="assets/logo.png" alt="">
+<img src="assets/logo-1.png" alt="">
 
 [![Project status](https://img.shields.io/badge/version-v1.0.0-orange.svg)](https://github.com/GabrielHCataldo/gopen-gateway-playground/releases/tag/v1.0.0)
 [![GitHub](https://badgen.net/badge/icon/main?icon=github&label)](https://github.com/GabrielHCataldo/gopen-gateway)
