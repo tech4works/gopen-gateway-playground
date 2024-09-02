@@ -1,4 +1,525 @@
 {
-  "port": 8080,
-  "hot-reload": true
+  "$schema": "https://raw.githubusercontent.com/tech4works/gopen-gateway/main/json-schema.json",
+  "@comment": "My first API Gateway",
+  "hot-reload": true,
+  "timeout": "$TIMEOUT",
+  "cache": {
+    "duration": "1m",
+    "only-if-status-codes": [
+      200
+    ],
+    "only-if-methods": [
+      "GET"
+    ],
+    "allow-cache-control": true
+  },
+  "limiter": {
+    "max-header-size": "1MB",
+    "max-body-size": "3MB",
+    "max-multipart-memory-size": "50MB"
+  },
+  "security-cors": {
+    "allow-headers": [
+      "Origin",
+      "Authorization",
+      "Content-Type"
+    ],
+    "allow-methods": [
+      "POST",
+      "GET"
+    ]
+  },
+  "middlewares": {
+    "get-user-by-token": {
+      "hosts": [
+        "$HOST_DUMMY"
+      ],
+      "path": "/user/me",
+      "method": "GET",
+      "request": {
+        "@comment": "Send only authorization header",
+        "header-projection": {
+          "Authorization": 1
+        }
+      }
+    }
+  },
+  "endpoints": [
+    {
+      "@comment": "Case 1: Single backend + Basic endpoint transformation response",
+      "path": "/case/1/git/:username",
+      "method": "GET",
+      "response": {
+        "@comment": "Changes naming from snake to lower camel, removes default encoding and clean empty fields",
+        "nomenclature": "LOWER_CAMEL",
+        "content-encoding": "NONE",
+        "omit-empty": true
+      },
+      "backends": [
+        {
+          "@comment": "Get data from a Github user by username",
+          "hosts": [
+            "$HOST_GIT"
+          ],
+          "path": "/users/:username",
+          "method": "GET"
+        }
+      ]
+    },
+    {
+      "@comment": "Case 2: Single backend + Cache + Basic endpoint and backend transformation response",
+      "path": "/case/2/git/:username",
+      "method": "GET",
+      "cache": {
+        "enabled": true
+      },
+      "response": {
+        "@comment": "Changes naming from snake to lower camel, removes default encoding and clean empty fields",
+        "nomenclature": "LOWER_CAMEL",
+        "content-encoding": "NONE",
+        "omit-empty": true
+      },
+      "backends": [
+        {
+          "@comment": "Get data from a Github user by username",
+          "hosts": [
+            "$HOST_GIT"
+          ],
+          "path": "/users/:username",
+          "method": "GET",
+          "response": {
+            "@comment": "Omit custom fields from header and project only some fields from JSON body",
+            "omit-header": true,
+            "body-projection": {
+              "id": 1,
+              "login": 1,
+              "name": 1,
+              "avatar_url": 1,
+              "public_repos": 1,
+              "followers": 1,
+              "following": 1,
+              "created_at": 1
+            }
+          }
+        }
+      ]
+    },
+    {
+      "@comment": "Case 3: Single backend + Custom cache + High endpoint and backend transformation response",
+      "path": "/case/3/git/:username",
+      "method": "GET",
+      "cache": {
+        "enabled": true,
+        "duration": "30s",
+        "strategy-headers": [
+          "User-Agent",
+          "X-Forwarded-For"
+        ],
+        "allow-cache-control": false
+      },
+      "response": {
+        "@comment": "Changes naming from snake to lower camel, changes default encoding to Deflate and clean empty fields",
+        "nomenclature": "LOWER_CAMEL",
+        "content-type": "XML",
+        "content-encoding": "DEFLATE",
+        "omit-empty": true
+      },
+      "backends": [
+        {
+          "@comment": "Get data from a Github user by username",
+          "hosts": [
+            "$HOST_GIT"
+          ],
+          "path": "/users/:username",
+          "method": "GET",
+          "response": {
+            "@comment": "Modifiers followers, following, public_repos values, and add field, map fields and project only some fields from JSON body",
+            "body-modifiers": [
+              {
+                "action": "RPL",
+                "key": "followers",
+                "value": "521"
+              },
+              {
+                "action": "RPL",
+                "key": "following",
+                "value": "402"
+              },
+              {
+                "action": "RPL",
+                "key": "public_repos",
+                "value": "301"
+              },
+              {
+                "action": "ADD",
+                "key": "verified",
+                "value": "true"
+              },
+              {
+                "action": "ADD",
+                "key": "wife",
+                "value": "{\"full_name\": \"Maria Cataldo Moskorz\", \"age\": 24, \"since\": \"2023-04-14T00:00:00Z\"}"
+              }
+            ],
+            "body-mapper": {
+              "login": "username",
+              "avatar_url": "personal_data.avatar",
+              "name": "personal_data.full_name",
+              "wife": "personal_data.wife",
+              "public_repos": "statistics.public_repos",
+              "followers": "statistics.followers",
+              "following": "statistics.following",
+              "verified": "statistics.verified"
+            },
+            "body-projection": {
+              "id": 1,
+              "username": 1,
+              "personal_data": 1,
+              "statistics": 1,
+              "created_at": 1
+            }
+          }
+        }
+      ]
+    },
+    {
+      "@comment": "Case 4: Multiples backends + Medium endpoint and backend transformation response",
+      "path": "/case/4/git/:username",
+      "method": "GET",
+      "response": {
+        "@comment": "Changes naming from snake to lower camel, clean empty fields",
+        "nomenclature": "LOWER_CAMEL",
+        "omit-empty": true
+      },
+      "backends": [
+        {
+          "@comment": "Get data from a Github user by username",
+          "hosts": [
+            "$HOST_GIT"
+          ],
+          "path": "/users/:username",
+          "method": "GET",
+          "response": {
+            "@comment": "Map fields and project only some fields from JSON body",
+            "body-mapper": {
+              "login": "username",
+              "avatar_url": "personal_data.avatar",
+              "name": "personal_data.full_name",
+              "public_repos": "statistics.public_repos",
+              "followers": "statistics.followers",
+              "following": "statistics.following"
+            },
+            "body-projection": {
+              "id": 1,
+              "username": 1,
+              "personal_data": 1,
+              "statistics": 1,
+              "created_at": 1
+            }
+          }
+        },
+        {
+          "@comment": "Get repos from a Github user by username",
+          "hosts": [
+            "$HOST_GIT"
+          ],
+          "path": "/users/:username/repos",
+          "method": "GET",
+          "response": {
+            "@comment": "Group array response in field json",
+            "group": "repos"
+          }
+        }
+      ]
+    },
+    {
+      "@comment": "Case 5: Multiples backends + High endpoint and backend transformation response + Aggregate",
+      "path": "/case/5/git/:username",
+      "method": "GET",
+      "response": {
+        "@comment": "Aggregate responses, changes naming from snake to lower camel and clean empty fields",
+        "aggregate": true,
+        "nomenclature": "LOWER_CAMEL",
+        "omit-empty": true
+      },
+      "backends": [
+        {
+          "@comment": "Get data from a Github user by username",
+          "hosts": [
+            "$HOST_GIT"
+          ],
+          "path": "/users/:username",
+          "method": "GET",
+          "response": {
+            "@comment": "Map fields and project only some fields from JSON body",
+            "body-mapper": {
+              "login": "username",
+              "avatar_url": "personal_data.avatar",
+              "name": "personal_data.full_name",
+              "public_repos": "statistics.public_repos",
+              "followers": "statistics.followers",
+              "following": "statistics.following"
+            },
+            "body-projection": {
+              "id": 1,
+              "username": 1,
+              "personal_data": 1,
+              "statistics": 1
+            }
+          }
+        },
+        {
+          "@comment": "Get repos from a Github user by username",
+          "hosts": [
+            "$HOST_GIT"
+          ],
+          "path": "/users/:username/repos",
+          "method": "GET",
+          "request": {
+            "@comment": "Change username URL param to another value, add limit and sort",
+            "query-modifiers": [
+              {
+                "action": "ADD",
+                "key": "per_page",
+                "value": "3"
+              },
+              {
+                "action": "ADD",
+                "key": "sort",
+                "value": "created"
+              }
+            ],
+            "param-modifiers": [
+              {
+                "action": "RPL",
+                "key": "username",
+                "value": "wesleywillians"
+              }
+            ]
+          },
+          "response": {
+            "@comment": "Group array response in field json and filter fields from index",
+            "group": "repos",
+            "body-projection": {
+              "id": 1,
+              "name": 1,
+              "url": 1,
+              "language": 1,
+              "visibility": 1,
+              "created_at": 1,
+              "updated_at": 1,
+              "pushed_at": 1
+            }
+          }
+        }
+      ]
+    },
+    {
+      "@comment": "Case 6: Timeout",
+      "path": "/case/6/timeout",
+      "method": "GET",
+      "timeout": "4s",
+      "backends": [
+        {
+          "@comment": "Get Users Data",
+          "hosts": [
+            "$HOST_DUMMY"
+          ],
+          "path": "/users",
+          "method": "GET",
+          "request": {
+            "@comment": "Add delay query param",
+            "query-modifiers": [
+              {
+                "action": "ADD",
+                "key": "delay",
+                "value": "5000"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "@comment": "Case 7: Single backend + Simple modification",
+      "path": "/case/7/login",
+      "method": "POST",
+      "backends": [
+        {
+          "@comment": "Auth Login",
+          "hosts": [
+            "$HOST_DUMMY"
+          ],
+          "path": "/auth/login",
+          "method": "POST",
+          "request": {
+            "@comment": "Replace minutes token expire",
+            "body-modifiers": [
+              {
+                "action": "SET",
+                "key": "expiresInMins",
+                "value": "1"
+              }
+            ]
+          },
+          "response": {
+            "@comment": "Projection body JSON Fields",
+            "body-projection": {
+              "id": 1,
+              "image": 1,
+              "username": 1,
+              "email": 1,
+              "token": 1,
+              "refreshToken": 1
+            }
+          }
+        }
+      ]
+    },
+    {
+      "@comment": "Case 8: Authorization Beforeware + Single Backend",
+      "path": "/case/8/my/posts",
+      "method": "GET",
+      "beforewares": [
+        "get-user-by-token"
+      ],
+      "backends": [
+        {
+          "@comment": "Get user's posts by ID",
+          "hosts": [
+            "$HOST_DUMMY"
+          ],
+          "path": "/users/:id/posts",
+          "method": "GET",
+          "request": {
+            "@comment": "Add auth user id by URL Path",
+            "param-modifiers": [
+              {
+                "action": "SET",
+                "key": "id",
+                "value": "#responses.0.body.id"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "@comment": "Case 9: Authorization Beforeware + Multiples Backend + Propagate",
+      "path": "/case/9/my/profile",
+      "method": "GET",
+      "response": {
+        "@comment": "Aggregate responses and clean empty fields",
+        "aggregate": true,
+        "omit-empty": true
+      },
+      "beforewares": [
+        "get-user-by-token"
+      ],
+      "backends": [
+        {
+          "@comment": "Get user by ID",
+          "hosts": [
+            "$HOST_DUMMY"
+          ],
+          "path": "/users/:id",
+          "method": "GET",
+          "request": {
+            "@comment": "Add auth user id by URL Path",
+            "param-modifiers": [
+              {
+                "action": "SET",
+                "key": "id",
+                "value": "#responses.0.body.id",
+                "propagate": true
+              }
+            ]
+          },
+          "response": {
+            "@comment": "Map JSON Body Fields and Projection",
+            "body-mapper": {
+              "firstName": "personalData.firstName",
+              "lastName": "personalData.lastName",
+              "birthDate": "personalData.birthDate",
+              "age": "personalData.age",
+              "gender": "personalData.gender",
+              "email": "contact.email",
+              "phone": "contact.phone"
+            },
+            "body-projection": {
+              "id": 1,
+              "username": 1,
+              "image": 1,
+              "personalData": 1,
+              "contact": 1
+            }
+          }
+        },
+        {
+          "@comment": "Get user's todos by ID",
+          "hosts": [
+            "$HOST_DUMMY"
+          ],
+          "path": "/users/:id/todos",
+          "method": "GET",
+          "response": {
+            "@comment": "Group todos on one field JSON",
+            "group": "todos",
+            "body-mapper": {
+              "todos": "page"
+            }
+          }
+        },
+        {
+          "@comment": "Get user's posts by ID",
+          "hosts": [
+            "$HOST_DUMMY"
+          ],
+          "path": "/users/:id/posts",
+          "method": "GET",
+          "response": {
+            "@comment": "Group posts on one field JSON, Map fields and projection JSON",
+            "group": "posts",
+            "body-mapper": {
+              "posts": "page"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "@comment": "Case 10: Disabled Concurrent Backend Calls",
+      "path": "/case/10/concurrent/disabled",
+      "method": "GET",
+      "backends": [
+        {
+          "@comment": "Get carts by user ID",
+          "hosts": [
+            "$HOST_DUMMY"
+          ],
+          "path": "/carts",
+          "method": "GET"
+        }
+      ]
+    },
+    {
+      "@comment": "Case 10: Enabled Concurrent Backend Calls",
+      "path": "/case/10/concurrent/enabled",
+      "method": "GET",
+      "backends": [
+        {
+          "@comment": "Get carts by user ID",
+          "hosts": [
+            "$HOST_DUMMY"
+          ],
+          "path": "/carts",
+          "method": "GET",
+          "request": {
+            "@comment": "Add concurrent request",
+            "concurrent": 3
+          }
+        }
+      ]
+    }
+  ]
 }
