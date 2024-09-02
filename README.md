@@ -1044,7 +1044,7 @@ configuração [clicando aqui](https://github.com/tech4works/gopen-gateway#endpo
 Na pasta do projeto, importe as configurações personalizadas rodando o comando abaixo:
 
 ```
-curl -X POST "localhost:5601/api/saved_objects/_import" -H "kbn-xsrf: true" --form file=@kibana-config.ndjson -H "kbn-xsrf: true"
+curl -X POST "localhost:5601/api/saved_objects/_import?overwrite=true" -H "kbn-xsrf: true" --form file=@kibana-config.ndjson -H "kbn-xsrf: true"
 ```
 
 Veja os dashboards, traces e logs acessando o http://localhost:5601.
